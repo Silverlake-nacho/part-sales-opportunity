@@ -18,8 +18,8 @@ def get_matching_google_sheet_rows(engine_code):
         SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
         creds = service_account.Credentials.from_service_account_file('credentials.json', scopes=SCOPES)
 
-       SPREADSHEET_ID = '1Xw-gCRHSCOIOZXiMPGW4Smq9UXdQRDefvQDW-GO4IXY'
-       RANGE = 'Sheet1'
+        SPREADSHEET_ID = '1Xw-gCRHSCOIOZXiMPGW4Smq9UXdQRDefvQDW-GO4IXY'
+        RANGE = 'Sheet1'
 
         service = build('sheets', 'v4', credentials=creds)
 
