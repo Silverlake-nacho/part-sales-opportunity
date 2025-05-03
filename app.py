@@ -12,10 +12,6 @@ from bs4 import BeautifulSoup
 from flask import request, render_template_string
 from collections import defaultdict
 
-from flask import jsonify
-import requests
-from bs4 import BeautifulSoup
-
 def rgb_to_hex(rgb):
     r = int(rgb.get('red', 1) * 255)
     g = int(rgb.get('green', 1) * 255)
@@ -199,19 +195,9 @@ def download():
         return send_file(output, download_name="parts_opportunity.xlsx", as_attachment=True)
     return "No data to download", 400
 
-@app.route('/load-data')
-def load_data():
-    try:
-        res = requests.get('https://example.com/data')
-        soup = BeautifulSoup(res.text, 'html.parser')
-        data = soup.find('div', {'id': 'target-data'})
-        return jsonify({'data': data.text})
-    except Exception as e:
-        print(f"Error loading data: {e}")
-        return jsonify({'error': 'Error loading data'}), 500
-
 @app.route('/ebay_small_parts')
 def ebay_small_parts():
+    import time
     model = request.args.get('model', '').strip()
     year = request.args.get('year', '').strip()
     if not model or not year:
@@ -223,16 +209,29 @@ def ebay_small_parts():
         "https://www.ebay.co.uk/sch/i.html?_nkw=" + query.replace(" ", "+") +
         "&_sop=12&_udhi=20&LH_ItemCondition=3000&LH_Complete=1&LH_Sold=1"
     )
+    print("🔍 eBay search URL:", search_url)
 
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                      "(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Connection": "keep-alive",
     }
 
-    try:
-        response = requests.get(search_url, headers=headers, timeout=10)
-        response.raise_for_status()
-    except Exception as e:
-        return f"Failed to fetch data from eBay: {str(e)}", 500
+    # Retry logic
+    response = None
+    for attempt in range(3):
+        try:
+            response = requests.get(search_url, headers=headers, timeout=10)
+            response.raise_for_status()
+            break
+        except Exception as e:
+            print(f"eBay fetch attempt {attempt + 1} failed: {e}")
+            time.sleep(2)
+    else:
+        return render_template_string("<p><strong>Failed to fetch data from eBay after 3 attempts.</strong></p>")
 
     soup = BeautifulSoup(response.text, 'html.parser')
     items = soup.select('.s-item')
