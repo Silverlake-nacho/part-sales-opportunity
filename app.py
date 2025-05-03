@@ -7,6 +7,15 @@ from oauth2client.service_account import ServiceAccountCredentials
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
+import requests
+from bs4 import BeautifulSoup
+from flask import request, render_template_string
+from collections import defaultdict
+
+from flask import jsonify
+import requests
+from bs4 import BeautifulSoup
+
 def rgb_to_hex(rgb):
     r = int(rgb.get('red', 1) * 255)
     g = int(rgb.get('green', 1) * 255)
@@ -18,7 +27,7 @@ def get_matching_google_sheet_rows(engine_code):
         SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
         creds = service_account.Credentials.from_service_account_file('credentials.json', scopes=SCOPES)
 
-        SPREADSHEET_ID = '1iH-70OrINA2jcd6YKszW-N8XpuJDTC9A3oArNWHbEeY'
+        SPREADSHEET_ID = '1Xw-gCRHSCOIOZXiMPGW4Smq9UXdQRDefvQDW-GO4IXY'
         RANGE = 'Sheet1'
 
         service = build('sheets', 'v4', credentials=creds)
@@ -79,7 +88,7 @@ def get_matching_google_sheet_rows(engine_code):
         scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
         creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
         client = gspread.authorize(creds)
-        sheet = client.open_by_key('1iH-70OrINA2jcd6YKszW-N8XpuJDTC9A3oArNWHbEeY').sheet1
+        sheet = client.open_by_key('1Xw-gCRHSCOIOZXiMPGW4Smq9UXdQRDefvQDW-GO4IXY').sheet1
         data = sheet.get_all_records()
         df_sheet = pd.DataFrame(data)
         filtered = df_sheet[df_sheet['Engine Code'].astype(str).str.contains(engine_code, case=False, na=False)]
@@ -189,6 +198,79 @@ def download():
         output.seek(0)
         return send_file(output, download_name="parts_opportunity.xlsx", as_attachment=True)
     return "No data to download", 400
+
+@app.route('/load-data')
+def load_data():
+    try:
+        res = requests.get('https://example.com/data')
+        soup = BeautifulSoup(res.text, 'html.parser')
+        data = soup.find('div', {'id': 'target-data'})
+        return jsonify({'data': data.text})
+    except Exception as e:
+        print(f"Error loading data: {e}")
+        return jsonify({'error': 'Error loading data'}), 500
+
+@app.route('/ebay_small_parts')
+def ebay_small_parts():
+    model = request.args.get('model', '').strip()
+    year = request.args.get('year', '').strip()
+    if not model or not year:
+        return "Model and year are required.", 400
+
+    # Construct search URL for eBay UK with filters: used, sold, under £20
+    query = f"{model} {year} used car parts"
+    search_url = (
+        "https://www.ebay.co.uk/sch/i.html?_nkw=" + query.replace(" ", "+") +
+        "&_sop=12&_udhi=20&LH_ItemCondition=3000&LH_Complete=1&LH_Sold=1"
+    )
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    }
+
+    try:
+        response = requests.get(search_url, headers=headers, timeout=10)
+        response.raise_for_status()
+    except Exception as e:
+        return f"Failed to fetch data from eBay: {str(e)}", 500
+
+    soup = BeautifulSoup(response.text, 'html.parser')
+    items = soup.select('.s-item')
+
+    part_data = defaultdict(lambda: {"price": "", "link": "", "count": 0})
+
+    for item in items:
+        title_tag = item.select_one('.s-item__title')
+        price_tag = item.select_one('.s-item__price')
+        link_tag = item.select_one('.s-item__link')
+
+        if not title_tag or not price_tag or not link_tag:
+            continue
+
+        title = title_tag.get_text(strip=True)
+        price_text = price_tag.get_text(strip=True).replace("£", "").split()[0]
+        link = link_tag.get("href")
+
+        try:
+            price = float(price_text)
+        except ValueError:
+            continue
+
+        if price <= 20:
+            if title not in part_data:
+                part_data[title]["price"] = f"£{price:.2f}"
+                part_data[title]["link"] = link
+            part_data[title]["count"] += 1
+
+    if not part_data:
+        return "<p>No results found under £20.</p>"
+
+    html = "<table class='table table-striped'><thead><tr><th>Title</th><th>Price</th><th>Link</th><th>Count</th></tr></thead><tbody>"
+    for title, data in part_data.items():
+        html += f"<tr><td>{title}</td><td>{data['price']}</td><td><a href='{data['link']}' target='_blank'>View</a></td><td>{data['count']}</td></tr>"
+    html += "</tbody></table>"
+
+    return render_template_string(html)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
