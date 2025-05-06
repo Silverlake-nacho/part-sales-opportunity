@@ -23,7 +23,7 @@ def get_matching_google_sheet_rows(engine_code):
         SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
         creds = service_account.Credentials.from_service_account_file('credentials.json', scopes=SCOPES)
 
-        SPREADSHEET_ID = '1Xw-gCRHSCOIOZXiMPGW4Smq9UXdQRDefvQDW-GO4IXY'
+        SPREADSHEET_ID = '1iH-70OrINA2jcd6YKszW-N8XpuJDTC9A3oArNWHbEeY'
         RANGE = 'Sheet1'
 
         service = build('sheets', 'v4', credentials=creds)
@@ -84,7 +84,7 @@ def get_matching_google_sheet_rows(engine_code):
         scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
         creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
         client = gspread.authorize(creds)
-        sheet = client.open_by_key('1Xw-gCRHSCOIOZXiMPGW4Smq9UXdQRDefvQDW-GO4IXY').sheet1
+        sheet = client.open_by_key('1iH-70OrINA2jcd6YKszW-N8XpuJDTC9A3oArNWHbEeY').sheet1
         data = sheet.get_all_records()
         df_sheet = pd.DataFrame(data)
         filtered = df_sheet[df_sheet['Engine Code'].astype(str).str.contains(engine_code, case=False, na=False)]
