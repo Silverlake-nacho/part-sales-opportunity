@@ -255,14 +255,14 @@ def ebay_small_parts():
         except ValueError:
             continue
 
-        if price <= 20:
+        if price <= 30:
             if title not in part_data:
                 part_data[title]["price"] = f"£{price:.2f}"
                 part_data[title]["link"] = link
             part_data[title]["count"] += 1
 
     if not part_data:
-        return "<p>No results found under £20.</p>"
+        return "<p>No results found under £30.</p>"
 
     html = "<table class='table table-striped'><thead><tr><th>Title</th><th>Price</th><th>Link</th><th>Count</th></tr></thead><tbody>"
     for title, data in part_data.items():
