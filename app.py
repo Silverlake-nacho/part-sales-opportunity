@@ -28,12 +28,10 @@ def get_matching_google_sheet_rows(engine_code):
 
         service = build('sheets', 'v4', credentials=creds)
 
-        # Get values
         values_result = service.spreadsheets().values().get(
             spreadsheetId=SPREADSHEET_ID, range=RANGE).execute()
         values = values_result.get('values', [])
 
-        # Get formatting
         format_result = service.spreadsheets().get(
             spreadsheetId=SPREADSHEET_ID,
             ranges=[RANGE],
@@ -53,7 +51,6 @@ def get_matching_google_sheet_rows(engine_code):
                 hex_color = rgb_to_hex(bg_color)
                 key = headers[j]
                 row_dict[key] = {'value': cell_text, 'bg': hex_color}
-            # Check if any cell contains engine_code
             if any(engine_code.lower() in str(c).lower() for c in row):
                 rows.append(row_dict)
 
@@ -63,8 +60,6 @@ def get_matching_google_sheet_rows(engine_code):
         print("Error accessing Google Sheets:", e)
         return []
 
-
-# Load your dataset
 file_path = 'WebFleet.csv'
 df = pd.read_csv(file_path)
 
@@ -78,20 +73,6 @@ USERS = {
 
 last_search_result = None
 search_details = None
-
-def get_matching_google_sheet_rows(engine_code):
-    try:
-        scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-        creds = ServiceAccountCredentials.from_json_keyfile_name('credentials.json', scope)
-        client = gspread.authorize(creds)
-        sheet = client.open_by_key('1iH-70OrINA2jcd6YKszW-N8XpuJDTC9A3oArNWHbEeY').sheet1
-        data = sheet.get_all_records()
-        df_sheet = pd.DataFrame(data)
-        filtered = df_sheet[df_sheet['Engine Code'].astype(str).str.contains(engine_code, case=False, na=False)]
-        return filtered.to_dict(orient='records')
-    except Exception as e:
-        print("Error accessing Google Sheets:", e)
-        return []
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -178,7 +159,6 @@ def index():
             search_details = {'model': model, 'year': year, 'engine_code': engine_code}
             parts = parts.to_dict('records')
 
-        # Google Sheet integration
         if engine_code:
             google_sheet_matches = get_matching_google_sheet_rows(engine_code)
 
@@ -203,13 +183,12 @@ def ebay_small_parts():
     if not model or not year:
         return "Model and year are required.", 400
 
-    # Construct search URL for eBay UK with filters: used, sold, under £50
     query = f"{model} {year} used car parts"
     search_url = (
         "https://www.ebay.co.uk/sch/i.html?_nkw=" + query.replace(" ", "+") +
         "&_sop=12&_udhi=50&LH_ItemCondition=3000&LH_Complete=1&LH_Sold=1"
     )
-    print("🔍 eBay search URL:", search_url)
+    print("\U0001F50D eBay search URL:", search_url)
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -220,7 +199,6 @@ def ebay_small_parts():
         "Connection": "keep-alive",
     }
 
-    # Retry logic
     response = None
     for attempt in range(3):
         try:
@@ -236,7 +214,7 @@ def ebay_small_parts():
     soup = BeautifulSoup(response.text, 'html.parser')
     items = soup.select('.s-item')
 
-    part_data = defaultdict(lambda: {"price": "", "link": "", "count": 0})
+    part_list = []
 
     for item in items:
         title_tag = item.select_one('.s-item__title')
@@ -256,17 +234,20 @@ def ebay_small_parts():
             continue
 
         if price <= 50:
-            if title not in part_data:
-                part_data[title]["price"] = f"£{price:.2f}"
-                part_data[title]["link"] = link
-            part_data[title]["count"] += 1
+            part_list.append({
+                "title": title,
+                "price": price,
+                "link": link
+            })
 
-    if not part_data:
+    if not part_list:
         return "<p>No results found under £50.</p>"
 
-    html = "<table class='table table-striped'><thead><tr><th>Title</th><th>Price</th><th>Link</th><th>Count</th></tr></thead><tbody>"
-    for title, data in part_data.items():
-        html += f"<tr><td>{title}</td><td>{data['price']}</td><td><a href='{data['link']}' target='_blank'>View</a></td><td>{data['count']}</td></tr>"
+    part_list.sort(key=lambda x: x["price"], reverse=True)
+
+    html = "<table class='table table-striped'><thead><tr><th>Title</th><th>Price</th><th>Link</th></tr></thead><tbody>"
+    for part in part_list:
+        html += f"<tr><td>{part['title']}</td><td>£{part['price']:.2f}</td><td><a href='{part['link']}' target='_blank'>View</a></td></tr>"
     html += "</tbody></table>"
 
     return render_template_string(html)
