@@ -261,8 +261,15 @@ def ebay_small_parts():
                 part_data[title]["link"] = link
             part_data[title]["count"] += 1
 
+    # After building part_data, sort it by price descending
+        sorted_parts = dict(
+        sorted(
+        part_data.items(),
+        key=lambda item: float(item[1]["price"].replace("£", "")),
+        reverse=True
+
     if not part_data:
-        return "<p>No results found under £30.</p>"
+        return "<p>No results found under £50.</p>"
 
     html = "<table class='table table-striped'><thead><tr><th>Title</th><th>Price</th><th>Link</th><th>Count</th></tr></thead><tbody>"
     for title, data in part_data.items():
