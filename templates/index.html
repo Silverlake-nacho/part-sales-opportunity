@@ -146,22 +146,22 @@
 	    {% if google_sheet_matches %}
 <h2 class="mt-5">Google Sheet Matches for Engine Code</h2>
 <table class="table table-striped mt-3">
-  <thead>
-    <tr>
-      {% for key in google_sheet_matches[0].keys() %}
-      <th>{{ key }}</th>
-      {% endfor %}
-    </tr>
-  </thead>
-  <tbody>
-    {% for row in google_sheet_matches %}
-    <tr>
-      {% for value in row.values() %}
-      <td>{{ value }}</td>
-      {% endfor %}
-    </tr>
-    {% endfor %}
-  </tbody>
+ <thead>
+   <tr>
+     {% for cell in google_sheet_matches[0] %}
+       <th>{{ cell.value }}</th>
+     {% endfor %}
+   </tr>
+ </thead>
+ <tbody>
+   {% for row in google_sheet_matches[1:] %}
+     <tr>
+       {% for cell in row %}
+         <td style="background-color: {{ cell.bg }};">{{ cell.value }}</td>
+       {% endfor %}
+     </tr>
+   {% endfor %}
+ </tbody>
 </table>
 {% endif %}
 	    
