@@ -46,6 +46,8 @@ def get_matching_google_sheet_rows(engine_code):
         for i, row in enumerate(values[1:], start=1):
             row_dict = {}
             for j, cell in enumerate(row):
+                if j in (17, 18):  # Skip columns R and S
+                    continue
                 cell_text = cell
                 bg_color = row_data[i]['values'][j].get('effectiveFormat', {}).get('backgroundColor', {})
                 hex_color = rgb_to_hex(bg_color)
