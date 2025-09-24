@@ -258,8 +258,14 @@ def ebay_small_parts():
             })
 
     if not part_list:
-        return "<p>No results found under £50.</p>"
-
+        embed_html = f"""
+        <div class='ebay-embed-container' style='height:75vh;'>
+            <iframe src='{search_url}' class='w-100 h-100 border-0' loading='lazy' referrerpolicy='no-referrer-when-downgrade'></iframe>
+        </div>
+        <p class='mt-3'>If the embedded page does not load, <a href='{search_url}' target='_blank' rel='noopener noreferrer'>open the eBay results in a new tab</a>.</p>
+        """
+        return render_template_string(embed_html)
+        
     part_list.sort(key=lambda x: x["price"], reverse=True)
 
     html = "<table class='table table-striped'><thead><tr><th>Title</th><th>Price</th><th>Link</th></tr></thead><tbody>"
@@ -429,3 +435,4 @@ def ebay_large_parts():
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
+
