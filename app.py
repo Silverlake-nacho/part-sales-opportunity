@@ -202,7 +202,7 @@ def ebay_small_parts():
     query = f"{model} {year}"
     search_url = (
         "https://www.ebay.co.uk/sch/131090/i.html?_nkw=" + query.replace(" ", "+") +
-        "&LH_ItemCondition=4&rt=nc&_sop=12&_udhi=50&LH_Complete=1&LH_Sold=1"
+        "&LH_ItemCondition=4&rt=nc&_sop=12&_udhi=50&LH_Complete=1&LH_Sold=1&_sop=16"
     )
     print("\U0001F50D eBay search URL:", search_url)
 
@@ -286,7 +286,7 @@ def ebay_medium_parts():
     query = f"{model} {year}"
     search_url = (
         "https://www.ebay.co.uk/sch/131090/i.html?_nkw=" + query.replace(" ", "+") +
-        "&LH_ItemCondition=4&rt=nc&_sop=12&_udlo=50&_udhi=500&LH_Complete=1&LH_Sold=1"
+        "&LH_ItemCondition=4&rt=nc&_sop=12&_udlo=50&_udhi=500&LH_Complete=1&LH_Sold=1&_sop=15"
         
     )
     print("\U0001F50D eBay search URL:", search_url)
@@ -365,7 +365,7 @@ def ebay_large_parts():
     query = f"{model} {year}"
     search_url = (
         "https://www.ebay.co.uk/sch/131090/i.html?_nkw=" + query.replace(" ", "+") +
-        "&LH_ItemCondition=4&rt=nc&_sop=12&_udlo=500&_udhi=5000&LH_Complete=1&LH_Sold=1"
+        "&LH_ItemCondition=4&rt=nc&_sop=12&_udlo=500&_udhi=5000&LH_Complete=1&LH_Sold=1&_sop=15"
     )
     print("\U0001F50D eBay search URL:", search_url)
 
@@ -435,4 +435,5 @@ def ebay_large_parts():
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
+
 
