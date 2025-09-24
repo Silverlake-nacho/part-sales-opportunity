@@ -358,13 +358,27 @@ def ebay_medium_parts():
             })
 
     if not part_list:
-        embed_html = f"""
-        <div class='ebay-embed-container' style='height:75vh;'>
-            <iframe src='{search_url}' class='w-100 h-100 border-0' loading='lazy' referrerpolicy='no-referrer-when-downgrade'></iframe>
-        </div>
-        <p class='mt-3'>If the embedded page does not load, <a href='{search_url}' target='_blank' rel='noopener noreferrer'>open the eBay results in a new tab</a>.</p>
+        search_url_js = json.dumps(search_url)
+        fallback_html = f"""
+        <script>
+          (function() {{
+            var ebayUrl = {search_url_js};
+            window.open(ebayUrl, '_blank', 'noopener');
+            var modalEl = document.getElementById('ebayModalM');
+            if (modalEl) {{
+              if (typeof bootstrap !== 'undefined' && bootstrap.Modal && bootstrap.Modal.getInstance) {{
+                var modalInstance = bootstrap.Modal.getInstance(modalEl);
+                if (modalInstance) {{
+                  modalInstance.hide();
+                }}
+              }} else if (typeof $ !== 'undefined' && $.fn && $.fn.modal) {{
+                $(modalEl).modal('hide');
+              }}
+            }}
+          }})();
+        </script>
         """
-        return render_template_string(embed_html)
+        return render_template_string(fallback_html)
 
     part_list.sort(key=lambda x: x["price"], reverse=True)
 
@@ -442,13 +456,27 @@ def ebay_large_parts():
             })
 
     if not part_list:
-        embed_html = f"""
-        <div class='ebay-embed-container' style='height:75vh;'>
-            <iframe src='{search_url}' class='w-100 h-100 border-0' loading='lazy' referrerpolicy='no-referrer-when-downgrade'></iframe>
-        </div>
-        <p class='mt-3'>If the embedded page does not load, <a href='{search_url}' target='_blank' rel='noopener noreferrer'>open the eBay results in a new tab</a>.</p>
+        search_url_js = json.dumps(search_url)
+        fallback_html = f"""
+        <script>
+          (function() {{
+            var ebayUrl = {search_url_js};
+            window.open(ebayUrl, '_blank', 'noopener');
+            var modalEl = document.getElementById('ebayModalL');
+            if (modalEl) {{
+              if (typeof bootstrap !== 'undefined' && bootstrap.Modal && bootstrap.Modal.getInstance) {{
+                var modalInstance = bootstrap.Modal.getInstance(modalEl);
+                if (modalInstance) {{
+                  modalInstance.hide();
+                }}
+              }} else if (typeof $ !== 'undefined' && $.fn && $.fn.modal) {{
+                $(modalEl).modal('hide');
+              }}
+            }}
+          }})();
+        </script>
         """
-        return render_template_string(embed_html)
+        return render_template_string(fallback_html)
 
     part_list.sort(key=lambda x: x["price"], reverse=True)
 
@@ -462,6 +490,7 @@ def ebay_large_parts():
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
+
 
 
 
