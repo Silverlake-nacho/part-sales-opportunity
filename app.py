@@ -72,6 +72,7 @@ app.secret_key = 'your_super_secret_key_here'
 
 USERS = {
     'admin': 'Silverlake1!',
+    'upickit': 'Silverlake7',
     'nacho': 'Silverlake1!'
 }
 
@@ -490,6 +491,7 @@ def ebay_large_parts():
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
+
 
 
 
