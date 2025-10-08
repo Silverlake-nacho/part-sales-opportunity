@@ -79,6 +79,92 @@ USERS = {
 last_search_result = None
 search_details = None
 
+
+def run_search(model, year, engine_code='', min_price=None, min_opportunity=None, action=None):
+    """Execute the part search and return the rendered data structures."""
+    global last_search_result, search_details
+
+    parts = None
+    google_sheet_matches = []
+
+    if not model or year in (None, ''):
+        search_details = None
+        return parts, search_details, google_sheet_matches
+
+    try:
+        year = int(year)
+    except (TypeError, ValueError):
+        search_details = None
+        return parts, search_details, google_sheet_matches
+
+    engine_code = (engine_code or '').strip()
+
+    try:
+        min_price_value = float(min_price) if min_price not in (None, '') else None
+    except (TypeError, ValueError):
+        min_price_value = None
+
+    try:
+        min_opportunity_value = float(min_opportunity) if min_opportunity not in (None, '') else None
+    except (TypeError, ValueError):
+        min_opportunity_value = None
+
+    filtered = df[
+        (df['Model'].str.lower() == model.lower()) &
+        (df['IC Start Year'] <= year) &
+        (df['IC End Year'] >= year)
+    ].copy()
+
+    if engine_code:
+        def custom_filter(row):
+            description = str(row['IC Description'])
+            if 'engine code' in description.lower():
+                return engine_code.lower() in description.lower()
+            return True
+
+        filtered = filtered[filtered.apply(custom_filter, axis=1)]
+
+    if action == 'search_excluding':
+        exclusion_keywords = [
+            "ENGINE", "TRANS/GEARBOX", "TURBOCHARGER", "SUPERCHARGER", "THROTTLE_BODY",
+            "ALTERNATOR", "STARTER", "A/C_COMPRESSOR", "Cylinder_head",
+            "FUEL_INJECTOR", "Injector_rail", "COIL/COIL_PACK",
+            "Injector_pump", "OIL_PAN/SUMP", "EGR_VALVE/COOLER"
+        ]
+        pattern = '|'.join(rf'\\b{kw}\\b' for kw in exclusion_keywords)
+        filtered = filtered[~filtered['Part'].str.contains(pattern, case=False, na=False, regex=True)]
+
+    if not filtered.empty:
+        filtered = filtered.copy()
+        filtered['Potential_Profit'] = (filtered['Backorders'] + filtered['Not Found 180 days']) * filtered['B Price']
+        filtered['Sales_Speed'] = filtered['Parts Sold All'] / (filtered['Parts in Stock'] + 1)
+        filtered['Opportunity_Score'] = filtered['Potential_Profit'] * filtered['Sales_Speed']
+
+        if min_price_value is not None:
+            filtered = filtered[filtered['B Price'] >= min_price_value]
+        if min_opportunity_value is not None:
+            filtered = filtered[filtered['Opportunity_Score'] >= min_opportunity_value]
+
+        if not filtered.empty:
+            parts_df = filtered[['Part', 'IC Start Year', 'IC End Year', 'IC Description', 'B Price', 'Parts in Stock',
+                                 'Backorders', 'Parts Sold All', 'Not Found 180 days', 'Potential_Profit',
+                                 'Sales_Speed', 'Opportunity_Score']]
+            parts_df = parts_df.sort_values(by=['Backorders', 'Opportunity_Score'], ascending=False).head(50)
+            last_search_result = parts_df
+            search_details = {'model': model, 'year': year, 'engine_code': engine_code}
+            parts = parts_df.to_dict('records')
+        else:
+            last_search_result = None
+            search_details = {'model': model, 'year': year, 'engine_code': engine_code}
+    else:
+        last_search_result = None
+        search_details = {'model': model, 'year': year, 'engine_code': engine_code}
+
+    if engine_code:
+        google_sheet_matches = get_matching_google_sheet_rows(engine_code)
+
+    return parts, search_details, google_sheet_matches
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     error = None
@@ -123,64 +209,64 @@ def autocomplete_model():
 @app.route('/', methods=['GET', 'POST'])
 def index():
     global last_search_result, search_details
+
     parts = None
     google_sheet_matches = []
+    form_defaults = {
+        'model': '',
+        'year': '',
+        'engine_code': '',
+        'min_price': '',
+        'min_opportunity': ''
+    }
+    description_filter = ''
+
     if request.method == 'POST':
-        model = request.form['model']
-        year = int(request.form['year'])
-        engine_code = request.form.get('engine_code', '').strip()
-        min_price = request.form.get('min_price')
-        min_opportunity = request.form.get('min_opportunity')
+        form_defaults.update({
+            'model': request.form.get('model', '').strip(),
+            'year': request.form.get('year', '').strip(),
+            'engine_code': request.form.get('engine_code', '').strip(),
+            'min_price': request.form.get('min_price', '').strip(),
+            'min_opportunity': request.form.get('min_opportunity', '').strip()
+        })
         action = request.form.get('action')
+        parts, search_details, google_sheet_matches = run_search(
+            form_defaults['model'],
+            form_defaults['year'],
+            form_defaults['engine_code'],
+            form_defaults['min_price'],
+            form_defaults['min_opportunity'],
+            action
+        )
+    else:
+        query_params = {key.lower(): value for key, value in request.args.items()}
+        relevant_keys = {'model', 'year', 'engine_code', 'min_price', 'min_opportunity', 'description_filter', 'action'}
+        if any(key in query_params for key in relevant_keys):
+            form_defaults.update({
+                'model': query_params.get('model', '').strip(),
+                'year': query_params.get('year', '').strip(),
+                'engine_code': query_params.get('engine_code', '').strip(),
+                'min_price': query_params.get('min_price', '').strip(),
+                'min_opportunity': query_params.get('min_opportunity', '').strip()
+            })
+            description_filter = query_params.get('description_filter', '').strip()
+            parts, search_details, google_sheet_matches = run_search(
+                form_defaults['model'],
+                form_defaults['year'],
+                form_defaults['engine_code'],
+                form_defaults['min_price'],
+                form_defaults['min_opportunity'],
+                query_params.get('action')
+            )
 
-        # Initial filtering
-        filtered = df[
-            (df['Model'].str.lower() == model.lower()) &
-            (df['IC Start Year'] <= year) &
-            (df['IC End Year'] >= year)
-        ]
-
-        if engine_code:
-            def custom_filter(row):
-                description = str(row['IC Description'])
-                if 'engine code' in description.lower():
-                    return engine_code.lower() in description.lower()
-                return True
-            filtered = filtered[filtered.apply(custom_filter, axis=1)]
-
-        # 🚨 NEW: exclusion list logic
-        if action == 'search_excluding':
-            exclusion_keywords = [
-                "ENGINE", "TRANS/GEARBOX", "TURBOCHARGER", "SUPERCHARGER", "THROTTLE_BODY",
-                "ALTERNATOR", "STARTER", "A/C_COMPRESSOR", "Cylinder_head",
-                "FUEL_INJECTOR", "Injector_rail", "COIL/COIL_PACK",
-                "Injector_pump", "OIL_PAN/SUMP", "EGR_VALVE/COOLER"
-            ]
-            pattern = '|'.join(rf'\b{kw}\b' for kw in exclusion_keywords)
-            filtered = filtered[~filtered['Part'].str.contains(pattern, case=False, na=False, regex=True)]
-
-        # Proceed with opportunity calculations if there's something left
-        if not filtered.empty:
-            filtered['Potential_Profit'] = (filtered['Backorders'] + filtered['Not Found 180 days']) * filtered['B Price']
-            filtered['Sales_Speed'] = filtered['Parts Sold All'] / (filtered['Parts in Stock'] + 1)
-            filtered['Opportunity_Score'] = filtered['Potential_Profit'] * filtered['Sales_Speed']
-
-            if min_price:
-                filtered = filtered[filtered['B Price'] >= float(min_price)]
-            if min_opportunity:
-                filtered = filtered[filtered['Opportunity_Score'] >= float(min_opportunity)]
-
-            parts = filtered[['Part', 'IC Start Year', 'IC End Year', 'IC Description', 'B Price', 'Parts in Stock', 'Backorders',
-                              'Parts Sold All', 'Not Found 180 days', 'Potential_Profit', 'Sales_Speed', 'Opportunity_Score']]
-            parts = parts.sort_values(by=['Backorders', 'Opportunity_Score'], ascending=False).head(50)
-            last_search_result = parts
-            search_details = {'model': model, 'year': year, 'engine_code': engine_code}
-            parts = parts.to_dict('records')
-
-        if engine_code:
-            google_sheet_matches = get_matching_google_sheet_rows(engine_code)
-
-    return render_template('index.html', parts=parts, search_details=search_details, google_sheet_matches=google_sheet_matches)
+    return render_template(
+        'index.html',
+        parts=parts,
+        search_details=search_details,
+        google_sheet_matches=google_sheet_matches,
+        form_defaults=form_defaults,
+        description_filter=description_filter
+    )
 
 @app.route('/download')
 def download():
@@ -491,6 +577,7 @@ def ebay_large_parts():
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
+
 
 
 
