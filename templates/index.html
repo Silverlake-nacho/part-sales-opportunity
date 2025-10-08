@@ -226,7 +226,8 @@
           pageLength: 25,
           order: [],
           initComplete: function () {
-            this.api().columns().every(function () {
+            var api = this.api();
+            api.columns().every(function () {
               var column = this;
               var header = $(column.header());
               var title = header.text();
@@ -237,6 +238,20 @@
                 }
               });
             });
+
+            var initialDescriptionFilter = {{ description_filter|tojson }};
+            if (!initialDescriptionFilter) {
+              var params = new URLSearchParams(window.location.search);
+              initialDescriptionFilter = params.get('description_filter') || '';
+            }
+
+            if (initialDescriptionFilter) {
+              var descriptionColumnIndex = 3; // Description column
+              var descriptionColumn = api.column(descriptionColumnIndex);
+              var descriptionInput = $(descriptionColumn.header()).find('input');
+              descriptionInput.val(initialDescriptionFilter);
+              descriptionColumn.search(initialDescriptionFilter).draw();
+            }
           }
         });
       });
