@@ -6,6 +6,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+from urllib.parse import urlparse, urljoin
 
 import time
 import requests
@@ -165,19 +166,29 @@ def run_search(model, year, engine_code='', min_price=None, min_opportunity=None
 
     return parts, search_details, google_sheet_matches
 
+def is_safe_redirect_target(target):
+    if not target:
+        return False
+    ref_url = urlparse(request.host_url)
+    test_url = urlparse(urljoin(request.host_url, target))
+    return (test_url.scheme in ('http', 'https') and ref_url.netloc == test_url.netloc)
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     error = None
+    next_url = request.args.get('next') or request.form.get('next')
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
         if username in USERS and USERS[username] == password:
             session['logged_in'] = True
             session['login_time'] = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+            if next_url and is_safe_redirect_target(next_url):
+                return redirect(next_url)
             return redirect(url_for('index'))
         else:
             error = 'Invalid Credentials. Please try again.'
-    return render_template('login.html', error=error)
+    return render_template('login.html', error=error, next=next_url)
 
 @app.route('/logout')
 def logout():
@@ -188,7 +199,9 @@ def logout():
 def require_login():
     allowed_routes = ['login', 'static', 'autocomplete_model']
     if request.endpoint not in allowed_routes and not session.get('logged_in'):
-        return redirect(url_for('login'))
+        next_url = request.full_path if request.query_string else request.path
+        next_url = next_url.rstrip('?')
+        return redirect(url_for('login', next=next_url))
     if session.get('logged_in'):
         login_time = session.get('login_time')
         if login_time:
@@ -577,6 +590,7 @@ def ebay_large_parts():
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
+
 
 
 
