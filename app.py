@@ -85,6 +85,18 @@ last_search_result = None
 search_details = None
 
 
+EXCLUDED_EXPORT_PART_TYPES = {
+    'ENGINE', 'TRANS/GEARBOX', 'TURBOCHARGER', 'SUPERCHARGER', 'THROTTLE_BODY',
+    'ALTERNATOR', 'STARTER', 'A/C_COMPRESSOR', 'CYLINDER_HEAD',
+    'FUEL_INJECTOR', 'INJECTOR_RAIL', 'COIL/COIL_PACK',
+    'INJECTOR_PUMP', 'OIL_PAN/SUMP', 'EGR_VALVE/COOLER'
+}
+
+
+def normalize_part_type(part_value):
+    return str(part_value or '').strip().strip('[]').upper()
+
+
 def run_search(model, year, engine_code='', min_price=None, min_opportunity=None, action=None):
     """Execute the part search and return the rendered data structures."""
     global last_search_result, search_details
@@ -130,14 +142,9 @@ def run_search(model, year, engine_code='', min_price=None, min_opportunity=None
         filtered = filtered[filtered.apply(custom_filter, axis=1)]
 
     if action == 'search_excluding':
-        exclusion_keywords = [
-            "ENGINE", "TRANS/GEARBOX", "TURBOCHARGER", "SUPERCHARGER", "THROTTLE_BODY",
-            "ALTERNATOR", "STARTER", "A/C_COMPRESSOR", "Cylinder_head",
-            "FUEL_INJECTOR", "Injector_rail", "COIL/COIL_PACK",
-            "Injector_pump", "OIL_PAN/SUMP", "EGR_VALVE/COOLER"
+        filtered = filtered[
+            ~filtered['Part'].apply(normalize_part_type).isin(EXCLUDED_EXPORT_PART_TYPES)
         ]
-        pattern = '|'.join(rf'\\b{kw}\\b' for kw in exclusion_keywords)
-        filtered = filtered[~filtered['Part'].str.contains(pattern, case=False, na=False, regex=True)]
 
     if not filtered.empty:
         filtered = filtered.copy()
